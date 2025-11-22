@@ -1,19 +1,23 @@
 export const educationLevels = [
-  "Bachelors", "Some-college", "11th", "HS-grad", "Prof-school", 
-  "Assoc-acdm", "Assoc-voc", "9th", "7th-8th", "12th", "Masters", 
-  "1st-4th", "10th", "Doctorate", "5th-6th", "Preschool"
+  { value: "HS-grad", label: "High School Graduate" },
+  { value: "Some-college", label: "Some College" },
+  { value: "Assoc-voc", label: "Associate Degree (Vocational)" },
+  { value: "Assoc-acdm", label: "Associate Degree (Academic)" },
+  { value: "Bachelors", label: "Bachelor's Degree" },
+  { value: "Masters", label: "Master's Degree" },
+  { value: "Prof-school", label: "Professional School (MD, JD, etc.)" },
+  { value: "Doctorate", label: "Doctorate (PhD)" },
+];
+
+export const majors = [
+  "Computer Science", "Engineering", "Business/Finance", 
+  "Mathematics & Statistics", "Health Sciences", "Humanities", 
+  "Social Sciences", "Arts & Design", "Other"
 ];
 
 export const workclasses = [
   "Private", "Self-emp-not-inc", "Self-emp-inc", "Federal-gov", 
   "Local-gov", "State-gov", "Without-pay", "Never-worked"
-];
-
-export const occupations = [
-  "Tech-support", "Craft-repair", "Other-service", "Sales", "Exec-managerial", 
-  "Prof-specialty", "Handlers-cleaners", "Machine-op-inspct", "Adm-clerical", 
-  "Farming-fishing", "Transport-moving", "Priv-house-serv", "Protective-serv", 
-  "Armed-Forces"
 ];
 
 export const relationships = [

@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import InputSection from './components/InputSection';
 import ResultsSection from './components/ResultsSection';
+import AboutModal from './components/AboutModal';
+import { BarChart3 } from 'lucide-react';
 
 const App = () => {
   const [formData, setFormData] = useState({
     age: 30,
     education: 'Bachelors',
+    major: 'Computer Science',
     workclass: 'Private',
-    occupation: 'Tech-support',
     maritalStatus: 'Never-married',
     relationship: 'Not-in-family',
     race: 'White',
@@ -17,6 +20,7 @@ const App = () => {
   });
   const [predictionResult, setPredictionResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -27,25 +31,20 @@ const App = () => {
     setIsLoading(true);
     setPredictionResult(null);
 
-    // Simulate an API call to the Python backend
     setTimeout(() => {
-      // Mock data structure
       const mockResult = {
-        salary_prob: Math.random(), // Probability of being >50k
-        growth_curve_data: [
-          { years: 0, salary: 55000 },
-          { years: 2, salary: 62000 },
-          { years: 5, salary: 75000 },
-          { years: 10, salary: 95000 },
-          { years: 15, salary: 110000 },
-        ],
+        salary_prob: Math.random(),
+        growth_curve_data: Array.from({ length: 15 }, (_, i) => ({
+          years: i * 2,
+          salary: 55000 + i * 4000 + Math.random() * 5000,
+        })),
         influence_scores: [
-          { feature: 'Education: Masters', impact: 0.25 },
-          { feature: 'Age', impact: 0.18 },
-          { feature: 'Occupation: Exec-managerial', impact: 0.15 },
-          { feature: 'Sex: Male', impact: -0.05 },
-          { feature: 'Race: White', impact: -0.02 },
-        ],
+          { feature: 'Education: Masters', impact: Math.random() * 0.3 },
+          { feature: 'Age', impact: Math.random() * 0.2 },
+          { feature: 'Major: CompSci', impact: Math.random() * 0.15 },
+          { feature: 'Sex: Male', impact: -(Math.random() * 0.1) },
+          { feature: 'Race: White', impact: -(Math.random() * 0.05) },
+        ].sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact)),
       };
       setPredictionResult(mockResult);
       setIsLoading(false);
@@ -53,16 +52,34 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
-      <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-20">
-        <div className="container mx-auto px-6 py-4">
-          <h1 className="text-3xl font-bold text-emerald-700">
-            FairML Income Growth Predictor
-          </h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-slate-100 font-sans text-slate-800">
+      <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-30 border-b border-white/30">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="text-emerald-600" size={28} />
+            <h1 className="text-xl font-bold text-slate-800">
+              FairML Income Predictor
+            </h1>
+          </div>
+          <button 
+            onClick={() => setIsAboutOpen(true)}
+            className="bg-emerald-50 text-emerald-700 font-semibold py-2 px-4 rounded-lg hover:bg-emerald-100 transition-colors duration-300"
+          >
+            About Project
+          </button>
         </div>
       </header>
+      
       <main className="container mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
+        <motion.div 
+          className="grid grid-cols-1 lg:grid-cols-10 gap-8"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.2 } }
+          }}
+        >
           <div className="lg:col-span-4">
             <InputSection
               formData={formData}
@@ -71,11 +88,18 @@ const App = () => {
               isLoading={isLoading}
             />
           </div>
-          <div className="lg:col-span-6">
+          <motion.div 
+            className="lg:col-span-6"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
             <ResultsSection prediction={predictionResult} />
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </main>
+
+      <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
     </div>
   );
 };

@@ -3,5 +3,5 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-50;
+  @apply bg-gradient-to-br from-slate-50 via-emerald-50 to-slate-100 font-sans;
 }
