@@ -24,21 +24,21 @@ const Navbar = () => {
             <NavLink
               to="/"
               className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-800"
-              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+              style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
             >
               Home
             </NavLink>
             <NavLink
-              to="/dashboard"
+              to="/settings"
               className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-800"
-              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+              style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
             >
-              Dashboard
+              Settings
             </NavLink>
             <NavLink
               to="/about"
               className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-800"
-              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+              style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
             >
               About
             </NavLink>
