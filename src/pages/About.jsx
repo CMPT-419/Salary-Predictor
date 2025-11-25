@@ -25,7 +25,14 @@ const About = () => {
           </div>
           <div className="p-4 rounded-lg">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Method</h2>
-            <p>Uses the UCI Adult Dataset + Median Salary Augmentation.</p>
+            <p>
+              Uses the UCI <a 
+                href="https://archive.ics.uci.edu/dataset/2/adult" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-700 underline underline-offset-2"
+              >Adult</a> Dataset + Median Salary Augmentation.
+            </p>
           </div>
           <div className="p-4 rounded-lg">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Goal</h2>
