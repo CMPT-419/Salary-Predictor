@@ -77,6 +77,7 @@ const Home = () => {
   const [prediction, setPrediction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  /*
   const handleCalculate = () => {
     setIsLoading(true);
     setPrediction(null);
@@ -94,6 +95,25 @@ const Home = () => {
       setIsLoading(false);
     }, 1500);
   };
+  */
+
+  const handleCalculate = async () => {
+    setIsLoading(true);
+    setPrediction(null);
+
+    try{
+      const response = await fetch("http://localhost:8000/predict",{
+        method: "POST",
+        headers: {"Content-Type" : "application/json"},
+        body: JSON.stringify(formData),
+      });
+      const data = await response.json()
+      setPrediction(data);
+    } catch(error){
+      console.error("API Error: ", error)
+    }
+    setIsLoading(false);
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;

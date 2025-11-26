@@ -1,3 +1,8 @@
-/frontend/node_modules
+node_modules/
 .vscode/
-\n# Backend data and model artifacts\nbackend/data/\nbackend/models/
+.DS_Store
+backend/data/
+backend/models/
+__pycache__/
+*.pyc
+.env
