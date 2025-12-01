@@ -142,7 +142,7 @@ def predict_salary(person: Person):
     probability = float(proba[prediction])
 
     # Generate growth curve
-    growth_curve_data = generate_growth_curve(prediction)
+    growth_curve__data = generate_growth_curve(prediction)
 
     return {
         "prediction": ">50K" if prediction == 1 else "<=50K",

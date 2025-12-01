@@ -84,22 +84,16 @@ const handleCalculate = async () => {
   setPrediction(null);
 
   try {
-    // Map form field names to match backend expected fields
+    // Map form field names to match backend UserProfile schema
     const payload = {
       age: parseInt(formData.age),
-      workclass: formData.workclass,
-      fnlwgt: 200000, // you can add a form field if you want to make this dynamic
-      education: formData.education,
-      education_num: 13, // or map from education if you want
+      education_level: formData.education,
+      major: formData.major,
+      work_class: formData.workclass,
       marital_status: formData.maritalStatus,
-      occupation: formData.occupation,
-      relationship: formData.relationship,
       race: formData.race,
       sex: formData.sex,
-      capital_gain: 0, // optional default
-      capital_loss: 0, // optional default
-      hours_per_week: 40, // optional default
-      native_country: formData.nativeCountry
+      native_country: formData.nativeCountry,
     };
 
     // Call the FastAPI backend
@@ -110,15 +104,27 @@ const handleCalculate = async () => {
     });
 
     if (!response.ok) {
+      // Log the validation errors from the backend
+      if (response.status === 422) {
+        const errorData = await response.json();
+        console.error("Validation Error:", errorData);
+      }
       throw new Error(`API error: ${response.status}`);
     }
 
     const data = await response.json();
 
+    // The mock response does not include growth_curve_data, so we create some.
+    // In a real scenario, this would come from the backend.
+    const growth_curve_data = Array.from({ length: 10 }, (_, i) => ({
+      years: i + 1,
+      salary: 50000 * Math.pow(1.05, i) * (data.confidence > 0.8 ? 1.2 : 1),
+    }));
+
     setPrediction({
-      salary_class: data.prediction, // ">50K" or "<=50K"
-      salary_prob: data.probability,
-      growth_curve_data: data.growth_curve_data
+      salary_class: data.salary_class, // ">50k" or "<=50k"
+      salary_prob: data.confidence,
+      growth_curve_data: growth_curve_data 
     });
 
   } catch (error) {
@@ -172,7 +178,7 @@ const handleCalculate = async () => {
               </div>              
               <div className="md:col-span-2">
                 <FormLabel>Occupation</FormLabel>
-                <CustomSelect name="Occupation" value={formData.occupation} onChange={handleChange} options={occupations} placeholder="Select Occupation"/>
+                <CustomSelect name="occupation" value={formData.occupation} onChange={handleChange} options={occupations} placeholder="Select Occupation"/>
               </div>
               <div>
                 <FormLabel>Work Class</FormLabel>
