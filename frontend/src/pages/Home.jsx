@@ -9,16 +9,17 @@ import {
   maritalStatuses,
   relationships,
   races,
-  countries
+  countries,
+  occupations,
+  sexes
 } from '../data/options';
 
 // --- Reusable & Chart-Specific Components ---
 
-const CustomSelect = ({ id, value, onChange, options, placeholder }) => (
+const CustomSelect = ({ name, value, onChange, options, placeholder }) => (
   <div className="relative">
     <select
-      id={id}
-      name={id}
+      name={name}        // <-- use name here
       value={value}
       onChange={onChange}
       className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 appearance-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition"
@@ -72,28 +73,62 @@ const Home = () => {
     relationship: 'Not-in-family',
     race: 'White',
     nativeCountry: 'United-States',
-    gender: 'Male',
+    occupation: 'Exec-managerial',  
+    sex: 'Male',                 
   });
-  const [prediction, setPrediction] = useState(null);
+  const [probability, setPrediction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleCalculate = () => {
-    setIsLoading(true);
-    setPrediction(null);
+const handleCalculate = async () => {
+  setIsLoading(true);
+  setPrediction(null);
 
-    setTimeout(() => {
-      const isHighIncome = Math.random() > 0.3;
-      const growthData = Array.from({ length: 11 }, (_, i) => ({
-          years: i * 2,
-          salary: 50000 + (i * 2 * 3500) + (Math.random() * 15000 * (i/2)),
-      }));
-      setPrediction({
-        salary_prob: isHighIncome ? (0.75 + Math.random() * 0.2) : (0.2 + Math.random() * 0.2),
-        growth_curve_data: growthData,
-      });
-      setIsLoading(false);
-    }, 1500);
-  };
+  try {
+    // Map form field names to match backend expected fields
+    const payload = {
+      age: parseInt(formData.age),
+      workclass: formData.workclass,
+      fnlwgt: 200000, // you can add a form field if you want to make this dynamic
+      education: formData.education,
+      education_num: 13, // or map from education if you want
+      marital_status: formData.maritalStatus,
+      occupation: formData.occupation,
+      relationship: formData.relationship,
+      race: formData.race,
+      sex: formData.sex,
+      capital_gain: 0, // optional default
+      capital_loss: 0, // optional default
+      hours_per_week: 40, // optional default
+      native_country: formData.nativeCountry
+    };
+
+    // Call the FastAPI backend
+    const response = await fetch("http://127.0.0.1:8000/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    setPrediction({
+      salary_class: data.prediction, // ">50K" or "<=50K"
+      salary_prob: data.probability,
+      growth_curve_data: data.growth_curve_data
+    });
+
+  } catch (error) {
+    console.error("Error predicting salary:", error);
+    alert("Failed to get probability from backend.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -134,6 +169,10 @@ const Home = () => {
               <div className="md:col-span-2">
                 <FormLabel>Major</FormLabel>
                 <CustomSelect name="major" value={formData.major} onChange={handleChange} options={majors} placeholder="Select Major"/>
+              </div>              
+              <div className="md:col-span-2">
+                <FormLabel>Occupation</FormLabel>
+                <CustomSelect name="Occupation" value={formData.occupation} onChange={handleChange} options={occupations} placeholder="Select Occupation"/>
               </div>
               <div>
                 <FormLabel>Work Class</FormLabel>
@@ -150,6 +189,10 @@ const Home = () => {
                <div>
                 <FormLabel>Race</FormLabel>
                 <CustomSelect name="race" value={formData.race} onChange={handleChange} options={races} placeholder="Select Race"/>
+              </div>               
+              <div>
+                <FormLabel>Sex</FormLabel>
+                <CustomSelect name="sex" value={formData.sex} onChange={handleChange} options={sexes} placeholder="Select Sex"/>
               </div>
                <div className="md:col-span-2">
                 <FormLabel>Country</FormLabel>
@@ -174,7 +217,7 @@ const Home = () => {
             <div className="flex items-center justify-center h-full min-h-[400px]">
                 <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
             </div>
-          ) : !prediction ? (
+          ) : !probability ? (
             <motion.div 
               className="flex flex-col items-center justify-center text-center p-8 bg-white h-full rounded-2xl shadow-sm border border-slate-100 min-h-[400px]"
               variants={cardVariants}
@@ -197,11 +240,11 @@ const Home = () => {
                 variants={cardVariants}
               >
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Predicted Salary</h3>
-                <p className={`text-5xl font-bold my-2 ${prediction.salary_prob > 0.5 ? 'text-emerald-500' : 'text-slate-800'}`}>
-                  {prediction.salary_prob > 0.5 ? '> $50K' : '<= $50K'}
+                <p className={`text-5xl font-bold my-2 ${probability.salary_class === '>50K' ? 'text-emerald-500' : 'text-slate-800'}`}>
+                  {probability.salary_class}
                 </p>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${prediction.salary_prob > 0.5 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
-                  {`${Math.round(prediction.salary_prob * 100)}% Confidence`}
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${probability.salary_prob > 0.5 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
+                  {`${Math.round(probability.salary_prob * 100)}% Confidence`}
                 </span>
               </motion.div>
 
@@ -214,7 +257,7 @@ const Home = () => {
                   Projected Income Growth
                 </h3>
                 <ResponsiveContainer width="100%" height="90%">
-                  <AreaChart data={prediction.growth_curve_data} margin={{ top: 5, right: 20, left: 10, bottom: 20 }}>
+                  <AreaChart data={probability.growth_curve_data} margin={{ top: 5, right: 20, left: 10, bottom: 20 }}>
                     <defs>
                       <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
@@ -226,7 +269,7 @@ const Home = () => {
                        <Label value="Years of Experience" offset={-15} position="insideBottom" />
                     </XAxis>
                     <YAxis tickFormatter={(value) => `$${Math.round(value/1000)}k`} tick={{fontSize: 12}} />
-                    <Tooltip content={<CustomTooltip data={prediction.growth_curve_data} />} />
+                    <Tooltip content={<CustomTooltip data={probability.growth_curve_data} />} />
                     <Area type="monotone" dataKey="salary" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorGrowth)" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -237,7 +280,7 @@ const Home = () => {
                 className="p-4 rounded-2xl bg-slate-100 border border-slate-200/80"
               >
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  <span className="font-bold text-slate-600">Data Transparency:</span> This projection is based on the UCI Adult Dataset augmented with real-world median salary data. The model applies FairML principles to mitigate bias from attributes like race or gender, ensuring the growth curve reflects merit-based potential rather than historical discrimination.
+                  <span className="font-bold text-slate-600">Data Transparency:</span> This projection is based on the UCI Adult Dataset augmented with real-world median salary data. The model applies FairML principles to mitigate bias from attributes like race or sex, ensuring the growth curve reflects merit-based potential rather than historical discrimination.
                 </p>
               </motion.div>
 
