@@ -14,6 +14,11 @@ class UserProfile(BaseModel):
 class RegressionResponse(BaseModel):
     predicted_salary: float
 
+class SalaryRangeResponse(BaseModel):
+    lower_bound: float
+    median: float
+    upper_bound: float
+
 class ClassificationResponse(BaseModel):
     salary_class: str
     confidence: float

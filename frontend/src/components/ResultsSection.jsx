@@ -1,11 +1,39 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Zap } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line } from 'recharts';
+import { TrendingUp, Zap, DollarSign } from 'lucide-react';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 50 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+};
+
+// Helper function to generate salary growth data
+const generateGrowthData = (low, med, high) => {
+  const data = [];
+  let currentLow = low;
+  let currentMed = med;
+  let currentHigh = high;
+
+  for (let i = 1; i <= 10; i++) {
+    data.push({
+      year: i,
+      low: Math.round(currentLow),
+      med: Math.round(currentMed),
+      high: Math.round(currentHigh),
+      range: [Math.round(currentLow), Math.round(currentHigh)]
+    });
+
+    // Apply a random annual raise between 3% and 5%
+    const raiseLow = 1 + (Math.random() * (0.05 - 0.03) + 0.03);
+    const raiseMed = 1 + (Math.random() * (0.05 - 0.03) + 0.03);
+    const raiseHigh = 1 + (Math.random() * (0.05 - 0.03) + 0.03);
+
+    currentLow *= raiseLow;
+    currentMed *= raiseMed;
+    currentHigh *= raiseHigh;
+  }
+  return data;
 };
 
 const ResultsSection = ({ prediction }) => {
@@ -26,9 +54,8 @@ const ResultsSection = ({ prediction }) => {
     );
   }
 
-  const { salary_prob, growth_curve_data, influence_scores } = prediction;
-  const isAbove50k = salary_prob > 0.5;
-  const confidence = isAbove50k ? salary_prob : 1 - salary_prob;
+  const { lower_bound, median, upper_bound } = prediction;
+  const growthData = generateGrowthData(lower_bound, median, upper_bound);
 
   return (
     <motion.div 
@@ -42,31 +69,31 @@ const ResultsSection = ({ prediction }) => {
         className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl p-6 text-center"
         variants={cardVariants}
       >
-        <h3 className="text-lg font-semibold text-slate-600">Predicted Salary Category</h3>
-        <p className={`text-5xl font-bold my-2 ${isAbove50k ? 'text-emerald-600' : 'text-slate-700'}`}>
-          {isAbove50k ? '> $50K' : '<= $50K'}
+        <h3 className="text-lg font-semibold text-slate-600">Estimated Annual Salary</h3>
+        <p className="text-5xl font-bold my-2 text-emerald-600">
+          {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(median)}
         </p>
-        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${isAbove50k ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-800'}`}>
-          {Math.round(confidence * 100)}% Confidence
-        </span>
+        <p className="text-md text-slate-500">
+          Estimated Range: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(lower_bound)} - {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(upper_bound)}
+        </p>
       </motion.div>
 
       {/* Growth Curve Card */}
       <motion.div 
-        className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl p-6 h-[300px]"
+        className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl p-6 h-[350px]"
         variants={cardVariants}
       >
-        <h3 className="text-lg font-semibold text-slate-600 mb-4 flex items-center"><TrendingUp className="mr-2 h-5 w-5 text-emerald-500"/>Projected Income Growth</h3>
+        <h3 className="text-lg font-semibold text-slate-600 mb-4 flex items-center"><TrendingUp className="mr-2 h-5 w-5 text-emerald-500"/>10-Year Salary Projection</h3>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={growth_curve_data} margin={{ top: 10, right: 30, left: 0, bottom: 30 }}>
+          <AreaChart data={growthData} margin={{ top: 10, right: 30, left: 0, bottom: 30 }}>
             <defs>
-              <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+              <linearGradient id="colorRange" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
                 <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(226, 232, 240, 0.5)" />
-            <XAxis dataKey="years" label={{ value: 'Years of Experience', position: 'insideBottom', offset: -15 }} />
+            <XAxis dataKey="year" label={{ value: 'Years', position: 'insideBottom', offset: -15 }} />
             <YAxis tickFormatter={(value) => `$${Math.round(value/1000)}k`} />
             <Tooltip 
               contentStyle={{ 
@@ -75,39 +102,21 @@ const ResultsSection = ({ prediction }) => {
                 border: '1px solid rgba(255, 255, 255, 0.2)',
                 borderRadius: '1rem'
               }}
-              formatter={(value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)} 
+              formatter={(value, name) => {
+                if (name === 'range') {
+                  return [
+                    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value[0]),
+                    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value[1])
+                  ].join(' - ');
+                }
+                return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+              }}
             />
-            <Area type="monotone" dataKey="salary" stroke="#059669" strokeWidth={2} fillOpacity={1} fill="url(#colorGrowth)" />
+            <Legend verticalAlign="top" height={36}/>
+            <Area type="monotone" dataKey="range" stroke={false} fill="url(#colorRange)" name="Confidence Range" />
+            <Line type="monotone" dataKey="med" stroke="#059669" strokeWidth={3} dot={false} name="Median" />
           </AreaChart>
         </ResponsiveContainer>
-      </motion.div>
-
-      {/* Fairness Check Card */}
-      <motion.div 
-        className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl p-6"
-        variants={cardVariants}
-      >
-        <h3 className="text-lg font-semibold text-slate-600 mb-4">Top Influencing Factors</h3>
-        <ul className="space-y-3">
-          {influence_scores.map((item, index) => (
-            <li key={index} className="flex items-center justify-between text-sm">
-              <span className="font-medium text-slate-700">{item.feature}</span>
-              <div className="flex items-center">
-                <span className={`font-semibold w-12 text-right ${item.impact > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {item.impact > 0 ? '+' : ''}{item.impact.toFixed(2)}
-                </span>
-                <div className="w-24 h-2 bg-slate-200 rounded-full ml-3 overflow-hidden">
-                   <motion.div 
-                     className={`h-full rounded-full ${item.impact > 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
-                     initial={{ width: 0 }}
-                     animate={{ width: `${Math.min(Math.abs(item.impact) * 200, 100)}%` }}
-                     transition={{ duration: 0.8, ease: "easeOut" }}
-                   />
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
       </motion.div>
     </motion.div>
   );

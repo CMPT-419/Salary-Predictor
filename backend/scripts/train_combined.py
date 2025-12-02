@@ -1,5 +1,5 @@
 from train_uci import train_and_save_classifier
-from train_acs import train_and_save_regressor
+from train_acs import train_and_save_quantile_regressors
 
 def train_all():
     """
@@ -10,7 +10,7 @@ def train_all():
     print("--- UCI Classifier Training Complete ---")
     print("\n")
     print("--- Starting ACS Regressor Training ---")
-    train_and_save_regressor()
+    train_and_save_quantile_regressors()
     print("--- ACS Regressor Training Complete ---")
     print("\n--- All training tasks complete. ---")
 

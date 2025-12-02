@@ -1,6 +1,6 @@
 import pandas as pd
 from ucimlrepo import fetch_ucirepo
-from folktables import ACSDataSource, ACSIncome
+from folktables import ACSDataSource
 
 def load_uci_data():
     """
@@ -19,23 +19,29 @@ def load_acs_data():
     Fetches and preprocesses the ACS Public Use Microdata Sample (PUMS) data.
     """
     data_source = ACSDataSource(survey_year='2018', horizon='1-Year', survey='person')
-    ca_data = data_source.get_data(states=['CA'], download=True)
-    features, labels, _ = ACSIncome.df_to_pandas(ca_data)
+    raw_df = data_source.get_data(states=['CA'], download=True)
+
+    # Ensure PINCP is numeric and filter
+    raw_df['PINCP'] = pd.to_numeric(raw_df['PINCP'], errors='coerce')
+    raw_df.dropna(subset=['PINCP'], inplace=True)
+    filtered_df = raw_df[raw_df['PINCP'] >= 1000].copy()
+
+    # Define features and target
+    feature_cols = ['AGEP', 'SCHL', 'MAR', 'SEX', 'OCCP', 'WKHP', 'COW']
+    target_col = 'PINCP'
     
-    # The 'labels' DataFrame contains the target variable 'PINCP'
-    y_reg = labels['PINCP']
-    X_reg = features
+    # Ensure feature columns are of correct type
+    for col in ['AGEP', 'SCHL', 'MAR', 'WKHP', 'COW']:
+        filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce')
+    
+    # OCCP and SEX should be treated as categorical. Let's ensure they are strings.
+    filtered_df['OCCP'] = filtered_df['OCCP'].astype(str)
+    filtered_df['SEX'] = filtered_df['SEX'].astype(str)
+    
+    # Drop rows with NaNs in feature columns
+    filtered_df.dropna(subset=feature_cols, inplace=True)
+    
+    X = filtered_df[feature_cols]
+    y = filtered_df[target_col]
 
-    # Convert y_reg to numeric
-    y_reg = pd.to_numeric(y_reg, errors='coerce').fillna(0)
-
-    # Filter out rows where income is 0 or negative
-    positive_income_mask = y_reg > 0
-    X_reg = X_reg[positive_income_mask]
-    y_reg = y_reg[positive_income_mask]
-
-    # Select features
-    feature_cols = ['AGEP', 'SCHL', 'MAR', 'RAC1P', 'SEX', 'POBP', 'OCCP']
-    X_reg = X_reg[feature_cols]
-
-    return X_reg, y_reg
+    return X, y

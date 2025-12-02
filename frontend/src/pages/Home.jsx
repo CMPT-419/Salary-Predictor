@@ -1,25 +1,23 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, Loader2, TrendingUp, Zap, ShieldCheck } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label } from 'recharts';
+import { ChevronDown, Loader2 } from 'lucide-react';
+import ResultsSection from '../components/ResultsSection'; // Import the new ResultsSection
 import {
   educationLevels,
   workClasses,
   majors,
   maritalStatuses,
-  relationships,
   races,
-  countries,
-  occupations,
-  sexes
+  sexes,
+  countries
 } from '../data/options';
 
-// --- Reusable & Chart-Specific Components ---
+// --- Reusable Components ---
 
 const CustomSelect = ({ name, value, onChange, options, placeholder }) => (
   <div className="relative">
     <select
-      name={name}        // <-- use name here
+      name={name}
       value={value}
       onChange={onChange}
       className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 appearance-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition"
@@ -37,25 +35,6 @@ const FormLabel = ({ children }) => (
   </label>
 );
 
-const CustomTooltip = ({ active, payload, label, data }) => {
-  if (active && payload && payload.length) {
-    const startSalary = data[0]?.salary;
-    const currentSalary = payload[0].value;
-    const growth = startSalary ? ((currentSalary - startSalary) / startSalary) * 100 : 0;
-
-    return (
-      <div className="p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-slate-100">
-        <p className="text-sm font-bold text-slate-700">{`Year ${label}`}</p>
-        <p className="text-base text-slate-600">{`Salary: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(currentSalary)}`}</p>
-        <p className={`text-sm font-medium ${growth >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-          {`Growth: ${growth >= 0 ? '+' : ''}${growth.toFixed(1)}% from start`}
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
-
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } }
@@ -66,75 +45,59 @@ const cardVariants = {
 const Home = () => {
   const [formData, setFormData] = useState({
     age: 30,
-    education: 'Bachelors',
+    education_level: 'Bachelors',
     major: 'Computer Science',
-    workclass: 'Private',
-    maritalStatus: 'Never-married',
-    relationship: 'Not-in-family',
+    work_class: 'Private',
+    marital_status: 'Never-married',
     race: 'White',
-    nativeCountry: 'United-States',
-    occupation: 'Exec-managerial',  
-    sex: 'Male',                 
+    sex: 'Male',
+    native_country: 'United-States',
+    // WKHP is not in the form, so we'll use a default on the backend
   });
-  const [probability, setPrediction] = useState(null);
+  const [prediction, setPrediction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-const handleCalculate = async () => {
-  setIsLoading(true);
-  setPrediction(null);
+  const handleCalculate = async () => {
+    setIsLoading(true);
+    setPrediction(null);
 
-  try {
-    // Map form field names to match backend UserProfile schema
-    const payload = {
-      age: parseInt(formData.age),
-      education_level: formData.education,
-      major: formData.major,
-      work_class: formData.workclass,
-      marital_status: formData.maritalStatus,
-      race: formData.race,
-      sex: formData.sex,
-      native_country: formData.nativeCountry,
-    };
+    try {
+      // The payload matches the UserProfile schema in the backend
+      const payload = {
+        age: parseInt(formData.age),
+        education_level: formData.education_level,
+        major: formData.major,
+        work_class: formData.work_class,
+        marital_status: formData.marital_status,
+        race: formData.race,
+        sex: formData.sex,
+        native_country: formData.native_country,
+      };
 
-    // Call the FastAPI backend
-    const response = await fetch("http://127.0.0.1:8000/predict", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+      const response = await fetch("http://127.0.0.1:8000/predict_salary_range", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    if (!response.ok) {
-      // Log the validation errors from the backend
-      if (response.status === 422) {
-        const errorData = await response.json();
-        console.error("Validation Error:", errorData);
+      if (!response.ok) {
+        if (response.status === 422) {
+          const errorData = await response.json();
+          console.error("Validation Error:", errorData);
+        }
+        throw new Error(`API error: ${response.status}`);
       }
-      throw new Error(`API error: ${response.status}`);
+
+      const data = await response.json();
+      setPrediction(data);
+
+    } catch (error) {
+      console.error("Error predicting salary:", error);
+      alert("Failed to get prediction from backend. Please check the console for details.");
+    } finally {
+      setIsLoading(false);
     }
-
-    const data = await response.json();
-
-    // The mock response does not include growth_curve_data, so we create some.
-    // In a real scenario, this would come from the backend.
-    const growth_curve_data = Array.from({ length: 10 }, (_, i) => ({
-      years: i + 1,
-      salary: 50000 * Math.pow(1.05, i) * (data.confidence > 0.8 ? 1.2 : 1),
-    }));
-
-    setPrediction({
-      salary_class: data.salary_class, // ">50k" or "<=50k"
-      salary_prob: data.confidence,
-      growth_curve_data: growth_curve_data 
-    });
-
-  } catch (error) {
-    console.error("Error predicting salary:", error);
-    alert("Failed to get probability from backend.");
-  } finally {
-    setIsLoading(false);
-  }
-};
-
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -160,7 +123,7 @@ const handleCalculate = async () => {
         >
           <div className="p-6">
             <h2 className="text-xl font-bold text-slate-800">Your Profile</h2>
-            <p className="text-sm text-slate-500 mt-1">Enter your details to predict your income.</p>
+            <p className="text-sm text-slate-500 mt-1">Enter your details to predict your income range.</p>
           </div>
           <div className="p-6 space-y-5 flex-grow">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
@@ -170,29 +133,21 @@ const handleCalculate = async () => {
               </div>
               <div>
                 <FormLabel>Education Level</FormLabel>
-                <CustomSelect name="education" value={formData.education} onChange={handleChange} options={educationLevels} placeholder="Select Education"/>
+                <CustomSelect name="education_level" value={formData.education_level} onChange={handleChange} options={educationLevels} placeholder="Select Education"/>
               </div>
               <div className="md:col-span-2">
                 <FormLabel>Major</FormLabel>
                 <CustomSelect name="major" value={formData.major} onChange={handleChange} options={majors} placeholder="Select Major"/>
-              </div>              
-              <div className="md:col-span-2">
-                <FormLabel>Occupation</FormLabel>
-                <CustomSelect name="occupation" value={formData.occupation} onChange={handleChange} options={occupations} placeholder="Select Occupation"/>
               </div>
               <div>
                 <FormLabel>Work Class</FormLabel>
-                <CustomSelect name="workclass" value={formData.workclass} onChange={handleChange} options={workClasses} placeholder="Select Work Class"/>
+                <CustomSelect name="work_class" value={formData.work_class} onChange={handleChange} options={workClasses} placeholder="Select Work Class"/>
               </div>
               <div>
                 <FormLabel>Marital Status</FormLabel>
-                <CustomSelect name="maritalStatus" value={formData.maritalStatus} onChange={handleChange} options={maritalStatuses} placeholder="Select Status"/>
+                <CustomSelect name="marital_status" value={formData.marital_status} onChange={handleChange} options={maritalStatuses} placeholder="Select Status"/>
               </div>
               <div>
-                <FormLabel>Relationship</FormLabel>
-                <CustomSelect name="relationship" value={formData.relationship} onChange={handleChange} options={relationships} placeholder="Select Relationship"/>
-              </div>
-               <div>
                 <FormLabel>Race</FormLabel>
                 <CustomSelect name="race" value={formData.race} onChange={handleChange} options={races} placeholder="Select Race"/>
               </div>               
@@ -202,7 +157,7 @@ const handleCalculate = async () => {
               </div>
                <div className="md:col-span-2">
                 <FormLabel>Country</FormLabel>
-                <CustomSelect name="nativeCountry" value={formData.nativeCountry} onChange={handleChange} options={countries} placeholder="Select Country"/>
+                <CustomSelect name="native_country" value={formData.native_country} onChange={handleChange} options={countries} placeholder="Select Country"/>
               </div>
             </div>
           </div>
@@ -212,7 +167,7 @@ const handleCalculate = async () => {
               disabled={isLoading}
               className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-all duration-300 disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center shadow-md hover:shadow-lg hover:-translate-y-0.5"
             >
-              {isLoading ? <Loader2 className="animate-spin mr-2" /> : 'Predict'}
+              {isLoading ? <Loader2 className="animate-spin mr-2" /> : 'Predict Salary Range'}
             </button>
           </div>
         </motion.div>
@@ -223,74 +178,8 @@ const handleCalculate = async () => {
             <div className="flex items-center justify-center h-full min-h-[400px]">
                 <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
             </div>
-          ) : !probability ? (
-            <motion.div 
-              className="flex flex-col items-center justify-center text-center p-8 bg-white h-full rounded-2xl shadow-sm border border-slate-100 min-h-[400px]"
-              variants={cardVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              <Zap className="mx-auto h-12 w-12 text-slate-400" />
-              <h3 className="mt-4 text-lg font-medium text-slate-700">Awaiting Calculation</h3>
-              <p className="mt-1 text-sm text-slate-500">Your results will appear here.</p>
-            </motion.div>
           ) : (
-            <motion.div 
-              className="space-y-6"
-              initial="hidden"
-              animate="visible"
-              variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-            >
-              <motion.div 
-                className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center"
-                variants={cardVariants}
-              >
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Predicted Salary</h3>
-                <p className={`text-5xl font-bold my-2 ${probability.salary_class === '>50K' ? 'text-emerald-500' : 'text-slate-800'}`}>
-                  {probability.salary_class}
-                </p>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${probability.salary_prob > 0.5 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
-                  {`${Math.round(probability.salary_prob * 100)}% Confidence`}
-                </span>
-              </motion.div>
-
-              <motion.div 
-                className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 h-[350px]"
-                variants={cardVariants}
-              >
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center">
-                  <TrendingUp className="mr-2 h-4 w-4 text-slate-400"/>
-                  Projected Income Growth
-                </h3>
-                <ResponsiveContainer width="100%" height="90%">
-                  <AreaChart data={probability.growth_curve_data} margin={{ top: 5, right: 20, left: 10, bottom: 20 }}>
-                    <defs>
-                      <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="years" tick={{fontSize: 12}} interval={1}>
-                       <Label value="Years of Experience" offset={-15} position="insideBottom" />
-                    </XAxis>
-                    <YAxis tickFormatter={(value) => `$${Math.round(value/1000)}k`} tick={{fontSize: 12}} />
-                    <Tooltip content={<CustomTooltip data={probability.growth_curve_data} />} />
-                    <Area type="monotone" dataKey="salary" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorGrowth)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </motion.div>
-              
-              <motion.div
-                variants={cardVariants}
-                className="p-4 rounded-2xl bg-slate-100 border border-slate-200/80"
-              >
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  <span className="font-bold text-slate-600">Data Transparency:</span> This projection is based on the UCI Adult Dataset augmented with real-world median salary data. The model applies FairML principles to mitigate bias from attributes like race or sex, ensuring the growth curve reflects merit-based potential rather than historical discrimination.
-                </p>
-              </motion.div>
-
-            </motion.div>
+            <ResultsSection prediction={prediction} />
           )}
         </div>
 

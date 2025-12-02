@@ -1,10 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .schemas import UserProfile, RegressionResponse, ClassificationResponse
+from .schemas import UserProfile, SalaryRangeResponse, ClassificationResponse
 import joblib
 import pandas as pd
 import os
-import numpy as np
 
 app = FastAPI()
 
@@ -21,46 +20,67 @@ app.add_middleware(
 # --- Model Loading ---
 MODELS_DIR = os.path.join(os.path.dirname(__file__), '..', 'models')
 CLASSIFIER_PATH = os.path.join(MODELS_DIR, 'uci_classifier.joblib')
-REGRESSOR_PATH = os.path.join(MODELS_DIR, 'acs_regressor.joblib')
+LOW_REGRESSOR_PATH = os.path.join(MODELS_DIR, 'acs_low.joblib')
+MID_REGRESSOR_PATH = os.path.join(MODELS_DIR, 'acs_mid.joblib')
+HIGH_REGRESSOR_PATH = os.path.join(MODELS_DIR, 'acs_high.joblib')
 
 clf_pipeline = joblib.load(CLASSIFIER_PATH)
-reg_pipeline = joblib.load(REGRESSOR_PATH)
+low_reg_pipeline = joblib.load(LOW_REGRESSOR_PATH)
+mid_reg_pipeline = joblib.load(MID_REGRESSOR_PATH)
+high_reg_pipeline = joblib.load(HIGH_REGRESSOR_PATH)
 
-# --- Mappings and Placeholders ---
-# Mapping from UserProfile.education_level to ACS 'SCHL' codes
-# This is a simplified mapping. A more comprehensive one would be needed for production.
+# Mappings (should be consistent with training)
 EDUCATION_MAP = {
-    'Bachelors': 21,
-    'HS-grad': 16,
-    'Masters': 22,
-    'Doctorate': 24,
-    'Some-college': 19,
-    'Associate': 20
-    # Add other levels as needed
+    'Bachelors': 21, 'HS-grad': 16, 'Masters': 22, 'Doctorate': 24,
+    'Some-college': 19, 'Associate': 20, 'Prof-school': 23,
+    '10th': 6, '11th': 7, '12th': 8, '9th': 5, '7th-8th': 4,
+    '5th-6th': 3, '1st-4th': 2, 'Preschool': 1
 }
+MARITAL_MAP = {'Married-civ-spouse': 1, 'Never-married': 5, 'Divorced': 3, 'Separated': 4, 'Widowed': 2}
+SEX_MAP = {'Male': 1, 'Female': 2}
+MAJOR_TO_OCCP_PLACEHOLDER = {"Computer Science": 1021, "Engineering": 1721, "Business": 1110, "Other": 4760}
+WORK_CLASS_TO_COW_MAP = {"Private": 1, "Self-emp-not-inc": 2, "Local-gov": 4, "State-gov": 5, "Federal-gov": 6, "Self-emp-inc": 3}
 
-# Mapping from UserProfile.marital_status to ACS 'MAR' codes
-MARITAL_MAP = {
-    'Never-married': 5,
-    'Married-civ-spouse': 1,
-    'Divorced': 3,
-    # Add other statuses
-}
 
-# Placeholder for major -> occupation mapping.
-# In a real scenario, this would be a more sophisticated mapping.
-MAJOR_TO_OCCP_PLACEHOLDER = {
-    "Computer Science": 1021,  # Computer Scientist
-    "Engineering": 1721,      # Engineer
-    "Business": 1110,         # Business Manager
-    # ... and so on
-}
+@app.post("/predict_salary_range", response_model=SalaryRangeResponse)
+async def predict_salary_range(user_profile: UserProfile):
+    """
+    Accepts user profile data and returns a predicted salary range.
+    """
+    print("Received user profile for salary range prediction:", user_profile.dict())
 
+    # Prepare input for the regression models
+    input_data = {
+        'AGEP': user_profile.age,
+        'SCHL': EDUCATION_MAP.get(user_profile.education_level, 16),
+        'MAR': MARITAL_MAP.get(user_profile.marital_status, 5),
+        'SEX': SEX_MAP.get(user_profile.sex, 2),
+        'OCCP': MAJOR_TO_OCCP_PLACEHOLDER.get(user_profile.major, 4760),
+        'WKHP': 40, # Assuming a standard 40-hour work week
+        'COW': WORK_CLASS_TO_COW_MAP.get(user_profile.work_class, 1)
+    }
+    input_df = pd.DataFrame([input_data])
+
+    # Ensure categorical columns are strings to match training data
+    categorical_features = ['SCHL', 'MAR', 'SEX', 'OCCP', 'COW']
+    for col in categorical_features:
+        input_df[col] = input_df[col].astype(str)
+    
+    # Predict with each model
+    lower_bound = low_reg_pipeline.predict(input_df)[0]
+    median = mid_reg_pipeline.predict(input_df)[0]
+    upper_bound = high_reg_pipeline.predict(input_df)[0]
+
+    return SalaryRangeResponse(
+        lower_bound=float(lower_bound),
+        median=float(median),
+        upper_bound=float(upper_bound)
+    )
 
 @app.post("/predict", response_model=ClassificationResponse)
 async def predict_class(user_profile: UserProfile):
     """
-    Accepts user profile data and returns a salary *class* prediction using the UCI-based classifier.
+    Accepts user profile data and returns a salary class prediction using the UCI-based classifier.
     """
     print("Received user profile for classification:", user_profile.dict())
 
@@ -82,44 +102,13 @@ async def predict_class(user_profile: UserProfile):
     }
     input_df = pd.DataFrame([df_data])
 
-    prediction_proba = clf_pipeline.predict_proba(input_df)
-    prediction = clf_pipeline.predict(input_df)
-    confidence = prediction_proba[0][prediction[0]]
-    salary_class = "<=50k" if prediction[0] == 0 else ">50k"
+    prediction = clf_pipeline.predict(input_df)[0]
+    proba = clf_pipeline.predict_proba(input_df)[0]
+    confidence = proba[prediction]
 
     return ClassificationResponse(
-        salary_class=salary_class,
+        salary_class=">50k" if prediction == 1 else "<=50k",
         confidence=float(confidence),
-        fairness_score=0.92,  # Placeholder
-        explanation={"age": 0.3, "education_level": 0.5, "major": 0.2}  # Placeholder
+        fairness_score=0.9, # Placeholder
+        explanation={"age": 0.3, "education_level": 0.5, "major": 0.2} # Placeholder
     )
-
-
-@app.post("/predict_salary", response_model=RegressionResponse)
-async def predict_salary(user_profile: UserProfile):
-    """
-    Accepts user profile data and returns a numerical salary prediction using the ACS-based regressor.
-    """
-    print("Received user profile for regression:", user_profile.dict())
-
-    # Prepare input for the regression model based on ACS features
-    reg_input_data = {
-        'AGEP': user_profile.age,
-        'SCHL': EDUCATION_MAP.get(user_profile.education_level, 16),  # Default to HS-grad
-        'MAR': MARITAL_MAP.get(user_profile.marital_status, 5),      # Default to Never-married
-        'RAC1P': 1 if user_profile.race == 'White' else 2, # Simplified: 1 for White, 2 for others
-        'SEX': 1 if user_profile.sex == 'Male' else 2,
-        'NATIVITY': 1 if user_profile.native_country == 'United-States' else 2, # Simplified
-        'OCCP': MAJOR_TO_OCCP_PLACEHOLDER.get(user_profile.major, 1021) # Default to Computer Scientist
-    }
-    input_df = pd.DataFrame([reg_input_data])
-    
-    # Ensure all required columns from training are present
-    # The regressor was trained on ['AGEP', 'SCHL', 'MAR', 'RAC1P', 'SEX', 'NATIVITY', 'OCCP']
-    
-    predicted_salary = reg_pipeline.predict(input_df)
-
-    # Ensure prediction is a standard float, not a numpy type
-    salary_float = float(predicted_salary[0])
-
-    return RegressionResponse(predicted_salary=salary_float)
