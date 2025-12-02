@@ -20,7 +20,7 @@ def train_and_save_quantile_regressors():
     X, y = load_acs_data()
 
     # Define categorical and numerical features
-    categorical_features = ['SCHL', 'MAR', 'SEX', 'OCCP', 'COW']
+    categorical_features = ['SCHL', 'MAR', 'SEX', 'COW', 'OCCP']
     numerical_features = ['AGEP', 'WKHP']
 
     # Create the preprocessing pipeline
@@ -37,28 +37,23 @@ def train_and_save_quantile_regressors():
     for quantile, path in zip(quantiles, model_paths):
         print(f"Training model for quantile: {quantile}")
 
-        # Define the XGBoost model for quantile regression
-        # Note: XGBoost's native quantile regression is used by setting the objective
         model = XGBRegressor(
             objective='reg:quantileerror',
             quantile_alpha=quantile,
-            n_estimators=100,  # Reduced for quicker training, can be tuned
-            max_depth=5,
-            learning_rate=0.1,
-            subsample=0.7,
-            colsample_bytree=0.7,
+            n_estimators=250, # Tuned for performance
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
             random_state=42,
             n_jobs=-1
         )
 
-        # Create the full pipeline
         pipeline = Pipeline(steps=[('preprocessor', preprocessor),
                                    ('regressor', model)])
 
-        # Train the model
         pipeline.fit(X, y)
 
-        # Save the model
         print(f"Saving model to {path}...")
         os.makedirs(MODELS_DIR, exist_ok=True)
         joblib.dump(pipeline, path)
